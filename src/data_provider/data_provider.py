@@ -14,7 +14,7 @@ import os, sys
 """ Training dataset"""
 
 class DataSetIter(torch.utils.data.Dataset):
-    def __init__(self, _base_img, _base_labels, _index2pos, _margin, _patch_size, _append_dim, random_rotate=False) -> None:
+    def __init__(self, _base_img, _base_labels, _index2pos, _margin, _patch_size, _append_dim) -> None:
         self.base_img = _base_img #全量数据包括margin (145+2margin * 145+2margin * spe)
         self.base_labels = _base_labels #全量数据无margin (145 * 145)
         self.index2pos = _index2pos #训练数据 index -> (x, y) 对应margin后base_img的中心点坐标
@@ -24,58 +24,25 @@ class DataSetIter(torch.utils.data.Dataset):
         self.patch_size = _patch_size
         self.append_dim = _append_dim
 
-        self.random_rotate = random_rotate
     
     def __getitem__(self, index):
         start_x, start_y = self.index2pos[index]
         patch = self.base_img[start_x:start_x+2*self.margin+1 , start_y:start_y+2*self.margin+1,:]
-        if self.random_rotate:
-            temp = patch
-            for i in range(np.random.randint(0,4)):
-                temp = np.transpose(temp, (1, 0, 2))  # 转置操作
-                temp = np.flipud(temp)  # 垂直翻转操作 
-            patch = temp
+        temp = patch
+        for i in range(np.random.randint(0,4)):
+            temp = np.transpose(temp, (1, 0, 2))  # 转置操作
+            temp = np.flipud(temp)  # 垂直翻转操作 
+        patch = temp
         if self.append_dim:
             patch = np.expand_dims(patch, 0) # [channel=1, h, w, spe]
             patch = patch.transpose((0,3,1,2)) # [c, spe, h, w]
         else:
             patch = patch.transpose((2, 0, 1)) #[spe, h, w]
         label = self.base_labels[start_x, start_y] - 1
-        # print(index, patch.shape, start_x, start_y, label)
         return torch.FloatTensor(patch.copy()), torch.LongTensor(label.reshape(-1))[0]
 
     def __len__(self):
         return self.size
-
-    def dump(self, dump_path):
-        if not os.path.exists(dump_path):
-            os.makedirs(dump_path)
-        np.save("%s/base_img" % dump_path, self.base_img)
-        np.save('%s/base_labels' % dump_path, self.base_labels)
-        meta = {
-            'index2pos': self.index2pos,
-            'margin': self.margin,
-            'patch_size': self.patch_size,
-            'append_dim': self.append_dim
-        }
-        ss = json.dumps(meta)
-        with open('%s/meta' % dump_path, 'w') as fout:
-            fout.write(ss)
-            fout.flush()
-
-    @staticmethod 
-    def load(dump_path):
-        base_img = np.load("%s/base_img.npy" % dump_path)
-        base_labels = np.load("%s/base_labels.npy" % dump_path)
-        with open('%s/meta' % dump_path, 'r') as fin:
-            js = json.loads(fin.read())
-            index2pos_temp = js['index2pos']
-            margin = js['margin']
-            patch_size = js['patch_size']
-            append_dim = js['append_dim']
-
-            index2pos = {int(k):v for k,v in index2pos_temp.items()}
-        return DataSetIter(base_img, base_labels, index2pos, margin, patch_size, append_dim)
     
 
 class HSIDataLoader(object):
@@ -103,26 +70,6 @@ class HSIDataLoader(object):
         self.norm_type = self.data_param.get("norm_type", 'max_min') # 'none', 'max_min', 'mean_var'
 
 
-        self.diffusion_sign = self.data_param.get('diffusion_sign', False)
-        self.diffusion_data_sign_path_prefix = self.data_param.get("diffusion_data_sign_path_prefix", '')
-        self.diffusion_data_sign = self.data_param.get("diffusion_data_sign", "unet3d_27000.pkl")
-
-
-        self.dump = self.data_param.get("dump", False)
-        self.dump_path_prefix = self.data_param.get('dump_path_prefix', '%s/%s/dump/%s' % (self.data_path_prefix, self.data_sign, self.data_file))
-        self.use_dump = self.data_param.get("use_dump", False)
-
-        self.random_rotate = self.data_param.get("random_rotate", False)
-
-    def load_data_from_diffusion(self, data_ori, labels):
-        path = "%s/%s" % (self.diffusion_data_sign_path_prefix, self.diffusion_data_sign)
-        data = np.load(path)
-        ori_h, ori_w, _= data_ori.shape
-        h, w, _= data.shape
-        assert ori_h == h, ori_w == w
-        print("load diffusion data shape is ", data.shape)
-        return data, labels 
-
     def load_raw_data(self):
         data, labels = None, None
         assert self.data_sign in ['Indian', 'Pavia', 'Houston', 'Salinas', 'WH']
@@ -136,11 +83,7 @@ class HSIDataLoader(object):
 
     def load_data(self):
         ori_data, labels, TR, TE = self.load_raw_data()
-        if self.diffusion_sign:
-            diffusion_data, diffusion_labels = self.load_data_from_diffusion(ori_data, labels)
-            return diffusion_data, diffusion_labels, TR, TE
-        else:
-            return ori_data, labels, TR, TE
+        return ori_data, labels, TR, TE
 
     def _padding(self, X, margin=2):
         # pading with zeros
@@ -242,39 +185,6 @@ class HSIDataLoader(object):
             norm_data = norm_data[:,:,:self.spectracl_size]
         return norm_data
 
-
-
-    def generate_numpy_dataset(self):
-        #1. 根据data_sign load data
-        self.data, self.labels, self.TR, self.TE = self.load_data()
-        print('[load data done.] load data shape data=%s, label=%s' % (str(self.data.shape), str(self.labels.shape)))
-
-        #2. 数据预处理 主要是norm化
-        norm_data = self.data_preprocessing(self.data) 
-        
-        print('[data preprocessing done.] data shape data=%s, label=%s' % (str(norm_data.shape), str(self.labels.shape))) 
-
-        # 3. reshape & filter
-        h, w, c = norm_data.shape
-        norm_data = norm_data.reshape((h*w,c))
-        norm_label = self.labels.reshape((h*w))
-        TR_reshape = self.TR.reshape((h*w))
-        TE_reshape = self.TE.reshape((h*w))
-        TrainX = norm_data[TR_reshape>0]
-        TrainY = norm_label[TR_reshape>0]
-        TestX = norm_data[TE_reshape>0]
-        TestY = norm_label[TE_reshape>0]
-        train_test_data = norm_data[norm_label>0]
-        train_test_label = norm_label[norm_label>0]
-        
-        print('------[data] split data to train, test------')
-        print("X_train shape : %s" % str(TrainX.shape))
-        print("Y_train shape : %s" % str(TrainY.shape))
-        print("X_test shape : %s" % str(TestX.shape))
-        print("Y_test shape : %s" % str(TestY.shape))
-
-        return TrainX, TrainY, TestX, TestY, norm_data
-
     def reconstruct_pred(self, y_pred):
         '''
         根据原始label信息 对一维预测结果重建图像
@@ -303,27 +213,15 @@ class HSIDataLoader(object):
         print("test len : %s" % len(test_index2pos ))
         print("all len: %s" % len(all_index2pos ))
 
-        print("random rotate is %s" % self.random_rotate)
-        trainset = DataSetIter(base_img, labels, train_index2pos, margin, patch_size, self.append_dim, random_rotate=self.random_rotate) 
-        unlabelset=DataSetIter(base_img,labels,test_index2pos,margin, patch_size, self.append_dim, random_rotate=self.random_rotate)
-        testset = DataSetIter(base_img, labels, test_index2pos , margin, patch_size, self.append_dim, random_rotate=self.random_rotate) 
-        allset = DataSetIter(base_img, labels, all_index2pos, margin, patch_size, self.append_dim, random_rotate=self.random_rotate) 
+        trainset = DataSetIter(base_img, labels, train_index2pos, margin, patch_size, self.append_dim) 
+        unlabelset=DataSetIter(base_img,labels,test_index2pos,margin, patch_size, self.append_dim)
+        testset = DataSetIter(base_img, labels, test_index2pos , margin, patch_size, self.append_dim) 
+        allset = DataSetIter(base_img, labels, all_index2pos, margin, patch_size, self.append_dim) 
         
         return trainset, unlabelset, testset, allset
  
     def generate_torch_dataset(self):
-        # 0. 判断是否使用numpy数据集
-        if self.if_numpy:
-            return self.generate_numpy_dataset()
-
-        # check if use dump data
-        if self.use_dump:
-            trainset = DataSetIter.load(self.dump_path_prefix + "/trainset")
-            unlabelset = DataSetIter.load(self.dump_path_prefix + "/unlabelset")
-            testset = DataSetIter.load(self.dump_path_prefix + "/testset")
-            allset = DataSetIter.load(self.dump_path_prefix + "/allset")
-        else:
-            trainset, unlabelset, testset, allset = self.prepare_data()
+        trainset, unlabelset, testset, allset = self.prepare_data()
 
         multi=self.data_param.get('unlabelled_multiple',1)
         train_loader = torch.utils.data.DataLoader(dataset=trainset,
@@ -349,16 +247,6 @@ class HSIDataLoader(object):
                                                 drop_last=False
                                                 )
         
-        if self.dump:
-            # dump datesetiter
-            if not os.path.exists(self.dump_path_prefix):
-                os.makedirs(self.dump_path_prefix)
-            trainset.dump(self.dump_path_prefix + "/trainset")
-            unlabelset.dump(self.dump_path_prefix + "/unlabelset")
-            testset.dump(self.dump_path_prefix + "/testset")
-            allset.dump(self.dump_path_prefix + "/allset")
-            print('dump dataset done.')
-
         return train_loader, unlabel_loader,test_loader, all_loader
 
        

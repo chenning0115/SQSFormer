@@ -7,8 +7,7 @@
         "num_classes": 16,
         "pca": 200,
         "dim_heads": 64,
-        "spectral_size": 200,
-        "random_rotate": true
+        "spectral_size": 200
     },
     "net": {
         "trainer": "sqsformer",
@@ -22,8 +21,7 @@
     "train": {
         "epochs": 50,
         "lr": 0.001,
-        "weight_decay": 0,
-        "temp": 20
+        "weight_decay": 0
     },
     "uniq_name": "Indian_test"
 }
