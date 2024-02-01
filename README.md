@@ -46,7 +46,7 @@ If you encounter the bugs while using this code, please do not hesitate to conta
 Licensing
 ---------
 
-Copyright (C) 2023 Ning Chen
+Copyright (C) 2024 Ning Chen
 
 This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, version 3 of the License.
 
