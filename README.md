@@ -3,7 +3,7 @@
 Ning Chen, Leyuan Fang, Yang Xia, Shaobo Xia, Hui Liu, and Jun Yue
 ___________
 
-The code in this toolbox implements the ["Spectral Query Spatial: Revisiting the Role of Center Pixel in Transformer for Hyperspectral Image Classiffcation"](). 
+The code in this toolbox implements the ["Spectral Query Spatial: Revisiting the Role of Center Pixel in Transformer for Hyperspectral Image Classiffcation"](https://ieeexplore.ieee.org/document/10419080). 
 
 
 More specifically, it is detailed as follow.
