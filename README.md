@@ -16,13 +16,20 @@ Citation
 **Please kindly cite the papers if this code is useful and helpful for your research.**
 
 ```
-will be added soon.
-
+N. Chen, L. Fang, Y. Xia, S. Xia, H. Liu and J. Yue, "Spectral Query Spatial: Revisiting the Role of Center Pixel in Transformer for Hyperspectral Image Classification," in IEEE Transactions on Geoscience and Remote Sensing, doi: 10.1109/TGRS.2024.3361652. keywords: {Feature extraction;Hyperspectral imaging;Interference;Data mining;Current transformers;Adaptation models;Tokenization;Deep neural network;hyperspectral image classification}
 ```
 
 ```
-will be addedd soon.
-
+@ARTICLE{10419080,
+  author={Chen, Ning and Fang, Leyuan and Xia, Yang and Xia, Shaobo and Liu, Hui and Yue, Jun},
+  journal={IEEE Transactions on Geoscience and Remote Sensing}, 
+  title={Spectral Query Spatial: Revisiting the Role of Center Pixel in Transformer for Hyperspectral Image Classification}, 
+  year={2024},
+  volume={},
+  number={},
+  pages={1-1},
+  keywords={Feature extraction;Hyperspectral imaging;Interference;Data mining;Current transformers;Adaptation models;Tokenization;Deep neural network;hyperspectral image classification},
+  doi={10.1109/TGRS.2024.3361652}}
 ```
 
 
